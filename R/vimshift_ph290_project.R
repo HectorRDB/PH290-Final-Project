@@ -1,0 +1,210 @@
+setwd('~/Documents/ptbi/ga_prediction/')
+
+devtools::install_github("tlverse/tmle3shift", dependencies = T)
+devtools::install_github("tlverse/tmle3", dependencies = T)
+devtools::install_github('tlverse/sl3', dependencies = F, force = T)
+
+devtools::install_github('osofr/condensier', build_vignettes = FALSE)
+devtools::install_github('osofr/simcausal', build_vignettes = FALSE)
+
+library(tidyverse)
+library(data.table)
+library(condensier)
+library(ranger)
+library(sl3)
+library(tmle3)
+library(tmle3shift)
+
+dat = read.csv('sample_ga_data_binomial.csv', row.names = 1)
+
+lrn1 <- Lrnr_mean$new()
+lrn2 <- Lrnr_glm$new()
+lrn3 <- Lrnr_ranger$new()
+sl_lrn <- Lrnr_sl$new(
+  learners = list(lrn1, lrn2, lrn3),
+  metalearner = Lrnr_nnls$new()
+)
+
+# learners used for conditional density regression (e.g., propensity score)
+lrn1_dens <- Lrnr_condensier$new(
+  nbins = 10, bin_estimator = lrn1,
+  bin_method = "dhist"
+)
+lrn2_dens <- Lrnr_condensier$new(
+  nbins = 15, bin_estimator = lrn2,
+  bin_method = "dhist"
+)
+lrn3_dens <- Lrnr_condensier$new(
+  nbins = 20, bin_estimator = lrn3,
+  bin_method = "dhist"
+)
+sl_lrn_dens <- Lrnr_sl$new(
+  learners = list(lrn1_dens, lrn2_dens, lrn3_dens),
+  metalearner = Lrnr_solnp_density$new()
+)
+#devtools::install_github('nhejazi/haldensify')
+
+# hal_dens <- Lrnr_haldensify$new(
+#   grid_type = "equal_mass",
+#   n_bins = 5
+# )
+
+Q_learner <- sl_lrn
+g_learner <- sl_lrn_dens
+#g_learner <- hal_dens
+learner_list <- list(Y = Q_learner, A = g_learner)
+
+new_tmle = function(likelihd, update, tmle_task) {
+  
+  targeted_likelihood <- Targeted_Likelihood$new(likelihd, update)
+  
+  # define parameter
+  tmle_params <- tmle_spec$make_params(tmle_task, targeted_likelihood)
+  updater$tmle_params <- tmle_params
+  ate <- tmle_params[[1]]
+  
+  # fit tmle update
+  tmle_fit <- fit_tmle3(tmle_task, targeted_likelihood, list(ate), update, max_it)
+  #out = c(tmle_fit$summary$tmle_est, tmle_fit$summary$se, tmle_fit$summary$lower, tmle_fit$summary$upper)
+  return(tmle_fit)
+  
+}
+
+get_sd  = function(tm_fit, stat1, stat2) {
+  # test_sd = sqrt(var(tm_fit$estimates[[stat1]]$IC - tm_fit$estimates[[stat2]]$IC)/nrow(tm_fit$estimates[[stat2]]$IC))
+  sd1 = sqrt(var(tm_fit$estimates[[1]]$IC)/length(tm_fit$estimates[[1]]$IC))
+  sd2 = sqrt(var(tm_fit$estimates[[2]]$IC)/length(tm_fit$estimates[[2]]$IC))
+  sd3 = sqrt(var(tm_fit$estimates[[3]]$IC)/length(tm_fit$estimates[[3]]$IC))
+  
+  test_sd = sqrt(var(tm_fit$estimates[[stat2]]$IC - tm_fit$estimates[[stat1]]$IC)/nrow(tm_fit$estimates[[stat2]]$IC))
+  test_stat = ((tm_fit$estimates[[stat2]]$psi) - (tm_fit$estimates[[stat1]]$psi)) /test_sd
+  ate = tm_fit$estimates[[stat2]]$psi - tm_fit$estimates[[stat1]]$psi
+  # 2 * pnorm(-abs(test_stat))
+  
+  # get_sd(tmle_fit, 1, 2)
+  # get_sd(tmle_fit, 2, 3)
+  # 
+  # sqrt((sd1^1) + (sd2^2))
+  # 
+  # sqrt(var(tmle_fit$estimates[[4]]$IC)/nrow(tmle_fit$estimates[[4]]$IC))
+  # 
+  # estimates = sapply(tmle_fit$estimates[1:3], function(x) x$psi)
+  # 
+  
+  ## MSM ##
+  var_D <- cov(tm_fit$estimates[[4]]$IC)
+  n <- nrow(tm_fit$estimates[[4]]$IC)
+  se <- sqrt(diag(var_D) / n)
+  level <- 0.95
+  beta_stat = tm_fit$estimates[[4]]$psi[2] / (se[2])
+  pval_beta = 2 * pnorm(-abs(beta_stat))
+  pval = 2 * pnorm(-abs(test_stat))
+  
+  #return(c(pval_beta, pval))
+  return(ate)
+}
+
+##### now try for our data #####
+X = subset(dat, select = -c(dhc, y))
+## removed variables 
+##had to remove categorical that were non binary
+
+Xcont = subset(X, select = -c(m_stature, fuel, enough_food, ever_no_food, run_out_food, not_enough_food,
+                              hh_smoker, alc, sex))
+Xcat = subset(X, select = c(m_stature, fuel, enough_food, ever_no_food, run_out_food, not_enough_food,
+                              hh_smoker, alc, sex))
+#current_a = current_a + runif(-0.1, 0.1, n = length(current_a))
+#dat[,Wnames[i]] <- current_a
+Wnames = names(Xcont)
+Wnames_cat = names(Xcat)
+dat[,Wnames] <- Xcont + runif(0, 0.1, n = nrow(Xcont))
+shifts = apply(X, 2, sd)
+
+#center and scale data first if 
+#pvals_beta = rep(NA, length(Wnames))
+#pvals = rep(NA, length(Wnames))
+ates = rep(NA, length(Wnames))
+for (i in 1:(length(Wnames))) {
+  dat = data.frame(dat)
+  node_list <- list(W = names(dat)[!(names(dat) %in% c(Wnames[i], "y", "X"))], A = Wnames[i], Y = "y")
+  node_list
+
+  #current_a = Xcont$fun_ht_anc1
+  current_a = dat[,which(names(dat) == Wnames[i])]
+  print(class(dat))
+  delta_grid <- c(-sd(current_a), 0,  sd(current_a))
+  #delta_grid <- c(-sd(current_a), 0,  sd(current_a))
+  delta_grid
+  #delta_grid <- seq(min(current_a), max(current_a), sd(current_a))
+  #seq(from = min(current_a), to = max(current_a), length.out = 3)
+
+  # initialize a tmle specification
+  tmle_spec <- tmle_vimshift_delta(shift_grid = delta_grid,
+                                   max_shifted_ratio = 3)
+  tmle_fit <- tmle3(tmle_spec, dat, node_list, learner_list)
+  
+  ates[i] = get_sd(tmle_fit, 2, 3)
+ 
+  # pv = get_sd(tmle_fit, 2, 3)
+  # pvals_beta[i] = pv[1]
+  # pvals[i] = pv[2]
+}
+
+# Wnames[index_order]
+# Wnames[pvals_beta <= .05]
+# Wnames[pvals_beta > 0.05]
+#save(pvals_beta, file = "pval_beta_vimshift.Rdata")
+#save(pvals, file = "pval_ttest_vimshift.Rdata")
+# Wnames[pvals <= .05]
+# Wnames[pvals > 0.05]
+
+##### NOW FOR CATEGORICAL VARIABLES ###
+
+lrnr_glm <- make_learner(Lrnr_glm)
+lrnr_mean <- make_learner(Lrnr_mean)
+lrnr_glmnet <- make_learner(Lrnr_glmnet)
+
+#lrnr_bart <- make_learner(Lrnr_bartMachine)
+stack <- make_learner(Stack, lrnr_glm, lrnr_mean, lrnr_glmnet)
+metalearner <- make_learner(Lrnr_nnls)
+sl <- Lrnr_sl$new(learners = stack, metalearner = metalearner)
+learner_list_cat <- list(Y = sl, A = sl)
+#dhc and fun_ht_1
+reg_ate = rep(NA, length(Wnames_cat))
+for (i in 1:length(Wnames_cat)) {
+  
+  dat = data.frame(dat)
+  node_list <- list(W = names(dat)[!(names(dat) %in% c(Wnames_cat[i], "y", "X"))], A = Wnames_cat[i], Y = "y")
+  node_list
+  
+  ########
+  tmle_spec <- tmle_ATE(1,0)
+  
+  # define data
+  tmle_task <- tmle_spec$make_tmle_task(dat, node_list)
+  
+  #this one is standard tmle (no c-tmle like approach)
+  initial_likelihood = tmle_spec$make_initial_likelihood(tmle_task, learner_list_cat)
+  updater <- tmle3_Update$new()
+  ########
+  reg_tmle = new_tmle(initial_likelihood, tmle3_Update$new(), tmle_task)
+  reg_ate[i] = reg_tmle$estimates[[1]]$psi
+  ########
+  
+}
+names(ates) <- Wnames
+names(reg_ate) <- Wnames_cat
+
+out = c(ates, reg_ate)
+
+index_order = order(abs(out), decreasing = T)
+final = out[index_order]
+names(final)
+
+#write.csv(final, file = "final_var_imp_decr.csv")
+##stepwise: verify what model it's choosing
+##in stepwise fashion, adding and subtracting vars
+##for which reason it added all 
+## table 1 (shows the random forest results)
+## compare the stimates with the true data and wants to put next to ea other
+## 
