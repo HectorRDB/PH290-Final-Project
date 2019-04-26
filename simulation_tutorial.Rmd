@@ -24,7 +24,7 @@ This tutorial explains how to use the simulation framework.
 
 # Loading the data and the scripts.
 
-We load the data that we want (i.e the binomial data that will serve to produce the simulation) and the scripts. The main function we care about is __simulate_outcome()__.
+We load the data that we want (i.e the binomial data that will serve to produce the simulation) and the scripts. The main function we care about is $simulate\_outcome$.
 
 ```{r}
 sample_data <- read.csv(here("data", "sample_ga_data_binomial.csv"))
@@ -40,7 +40,16 @@ sim1 <- simulate_outcome(sample_data = sample_data, n = 1000)
 names(sim1)
 ```
 
-The simulation returns the simulated outcome $y$ as well as the $covariates$ matrix used to do the simulation.
+The simulation returns the simulated outcome $y$ as well as the $covariates$ matrix used to do the simulation, and a $ranking\_info$ list that will use next.
+
+# Recovering the true ranking
+
+There are two ranking functions implemented: $ranking_simple$ and $ranking_complex$. The first just return the value of the coefficients (taking into account non-linear and interaction terms). The other compute the actual effect based on the dataset at hand. Both return a vector of values. Variable should be ranked according to absolute values of this vector.
+
+```{r}
+ranking_simple(sim1$ranking_info)
+ranking_complex(sim1$ranking_info)
+```
 
 # Changing the complexity
 
