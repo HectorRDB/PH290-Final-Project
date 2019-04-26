@@ -62,3 +62,9 @@ sim2 <- simulate_outcome(sample_data = sample_data, n = 1000, complexity = 10)
 # Reproducibility
 
 The function also has a seed argument. It has a default value so that we can all have the same results, but you can change it if you want to iterate over multiple results. 
+
+# More details
+
+To better understand the details, note that
++ The covariate matrix is scaled and centered before being used for prediction.
++ The simulation will check if we have at least $5\%$ of each outcome. Otherwise, it will re-run. This might, with very specific seeds, cause the code to run for very long. In that case, stop and change the seed before re-running.
