@@ -1,0 +1,55 @@
+---
+title: "How to use the simulation framework"
+author: "Hector Roux de Bézieux"
+date: '`r format(Sys.time(), "%d %B , %Y")`'
+output:
+  pdf_document
+---
+
+```{r packages, include=F}
+library(knitr)
+opts_chunk$set(
+  fig.pos = "!h", out.extra = "", warning = FALSE, message = FALSE,
+  fig.width = 5, fig.align = "center", echo = TRUE
+)
+libs <- c("here", "purrr")
+suppressMessages(
+  suppressWarnings(sapply(libs, require, character.only = TRUE))
+)
+rm(libs)
+```
+
+
+This tutorial explains how to use the simulation framework.
+
+# Loading the data and the scripts.
+
+We load the data that we want (i.e the binomial data that will serve to produce the simulation) and the scripts. The main function we care about is __simulate_outcome()__.
+
+```{r}
+sample_data <- read.csv(here("data", "sample_ga_data_binomial.csv"))
+source(here("R", "sim_variables.R"))
+```
+
+# Running a first simulation
+
+We simulate $n=1000$ observations.
+
+```{r}
+sim1 <- simulate_outcome(sample_data = sample_data, n = 1000)
+names(sim1)
+```
+
+The simulation returns the simulated outcome $y$ as well as the $covariates$ matrix used to do the simulation.
+
+# Changing the complexity
+
+We introduce a complexity argument that can be between 0 and 20. With $complexity=0$, we simulate the log-odd of $y$ as a linear combination of the covariate. Increasing the complexity by one adds one non-linear term (for example cubic or square root) and two interaction terms.
+
+```{r}
+sim2 <- simulate_outcome(sample_data = sample_data, n = 1000, complexity = 10)
+```
+
+# Reproducibility
+
+The function also has a seed argument. It has a default value so that we can all have the same results, but you can change it if you want to iterate over multiple results. 
