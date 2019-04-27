@@ -1,0 +1,90 @@
+---
+title: "Intermediate report"
+author: "Armand Amin, Alejandra Benitez, Hector Roux de Bézieux, Jennifer Wiederspahn"
+date: '`r format(Sys.time(), "%d %B , %Y")`'
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float: true
+---
+
+```{r packages, include=F}
+library(knitr)
+opts_chunk$set(
+  fig.pos = "!h", out.extra = "", warning = F, message = F,
+  fig.width = 5, fig.align = "center", echo = F
+)
+libs <- c("here")
+suppressMessages(
+  suppressWarnings(sapply(libs, require, character.only = TRUE))
+)
+rm(libs)
+```
+
+
+```{r run one by one, echo = FALSE}
+source(here("R", "ga_gbm.R"))
+rf_imp <- imp$importance
+rm(ga_data, ga_data_x, gbmFit1, inTraining, testing, training, imp)
+suppressMessages(suppressWarnings(
+  source(here("R", "varimpact.R"))
+))
+
+sample_data <- read.csv("data/sample_ga_data_binomial.csv")
+train_sample_data <- sample_data[ , !(colnames(sample_data) %in% "X")]
+min.model <- glm(y ~ ., data = train_sample_data, family = binomial)
+```
+
+```{r}
+vim <- vim$results_all %>% 
+  mutate(feature = rownames(vim$results_all)) %>%
+  mutate(varimpact = dplyr::min_rank(`P-value`)) %>%
+  select(feature, varimpact)
+  
+
+rf_imp <- rf_imp %>% mutate(feature = rownames(rf_imp),
+                            rf = dplyr::min_rank(desc(Overall))) %>%
+  select(-Overall)
+
+regression <- summary(min.model)$coefficients %>% as.data.frame()
+regression <- regression %>%
+  mutate(feature = rownames(regression),
+         regression = dplyr::min_rank(`Pr(>|z|)`)) %>%
+  select(feature, regression) %>%
+  filter(feature != "(Intercept)")
+vimshift <- read.csv("data/final_var_imp_decr_2.csv",
+                     col.names = c("feature", "imp")) %>%
+  mutate(vimshift = dplyr::min_rank(desc(abs(imp)))) %>%
+  select(-imp)
+df <- full_join(vim, rf_imp) %>% full_join(regression) %>% full_join(vimshift)
+```
+
+
+```{r}
+df$mean_rank = rowMeans((df[, 2:5]), na.rm = TRUE)
+df <- df %>% arrange(mean_rank)
+df$feature <- factor(df$feature, levels = df$feature)
+df_plot <- df %>% gather(key = "method", value = "rank", -feature)
+ggplot(df_plot, aes(x = feature, y = rank, col = method)) +
+  geom_point() + 
+  theme_classic() +
+  theme(rect = element_blank(),
+        axis.text.x = element_text(angle = 90))
+ggsave(here("Figures", "global_ranking.pdf"))
+```
+
+```{r}
+df_plot <- df %>% select(-varimpact)
+df_plot$mean_rank = rowMeans((df_plot[, 2:4]), na.rm = TRUE)
+df_plot <- df_plot %>% arrange(mean_rank)
+df_plot$feature <- factor(df_plot$feature, levels = df_plot$feature)
+df_plot <- df_plot %>% gather(key = "method", value = "rank", -feature)
+ggplot(df_plot %>% filter(method != "varimpact"),
+       aes(x = feature, y = rank, col = method)) +
+  geom_point() + 
+  theme_classic() +
+  theme(rect = element_blank(),
+        axis.text.x = element_text(angle = 90))
+ggsave(here("Figures", "no_varimpact_ranking.pdf"))
+```
