@@ -105,7 +105,7 @@ get_sd  = function(tm_fit, stat1, stat2) {
   pval = 2 * pnorm(-abs(test_stat))
 
   #return(c(pval_beta, pval))
-  return(c(ate, pval, test_sd, beta_stat, pval_beta, se[1]))
+  return(c(ate, pval, test_sd, beta_stat, pval_beta, se))
 }
 
 
@@ -163,7 +163,7 @@ run_vim_shift = function(train, Wnames) {
   names(ates) = Wnames
   results_tab = round(do.call(rbind, ates), 6)
   class(results_tab)
-  colnames(results_tab) <- c("ate", "pval", "test_sd", "beta_stat", "pval_beta", "se_beta", "se_intercept")
+  colnames(results_tab) <- c("ate", "pval", "test_sd", "beta_stat", "pval_beta", "se_intercept", "se_beta")
   #results_tab
   ordered_tab = results_tab[order(abs(results_tab[,1]), decreasing = T),]
   return(rownames(ordered_tab)) 
