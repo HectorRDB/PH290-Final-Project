@@ -2,11 +2,10 @@ setwd('~/Documents/ptbi/ga_prediction/')
 
 devtools::install_github("tlverse/tmle3shift", dependencies = T)
 devtools::install_github("tlverse/tmle3", dependencies = T)
-devtools::install_github('tlverse/sl3', dependencies = F, force = T)
+devtools::install_github('tlverse/sl3', dependencies = T)
 
 devtools::install_github('osofr/condensier', build_vignettes = FALSE)
 devtools::install_github('osofr/simcausal', build_vignettes = FALSE)
-
 library(tidyverse)
 library(data.table)
 library(condensier)
@@ -15,7 +14,11 @@ library(sl3)
 library(tmle3)
 library(tmle3shift)
 
-dat = read.csv('sample_ga_data_binomial.csv', row.names = 1)
+#dat = read.csv('sample_ga_data_binomial.csv', row.names = 1)
+#trainb = read.csv('lmp_sample_data_binomial.csv', row.names = 1)
+train = read.csv('sample_ga_data_binomial_2019-04-26.csv', row.names = 1)
+#dat = read.csv('lmp_sample_data_gauss.csv')
+#X = make_x(traing)
 
 lrn1 <- Lrnr_mean$new()
 lrn2 <- Lrnr_glm$new()
@@ -79,17 +82,7 @@ get_sd  = function(tm_fit, stat1, stat2) {
   test_sd = sqrt(var(tm_fit$estimates[[stat2]]$IC - tm_fit$estimates[[stat1]]$IC)/nrow(tm_fit$estimates[[stat2]]$IC))
   test_stat = ((tm_fit$estimates[[stat2]]$psi) - (tm_fit$estimates[[stat1]]$psi)) /test_sd
   ate = tm_fit$estimates[[stat2]]$psi - tm_fit$estimates[[stat1]]$psi
-  # 2 * pnorm(-abs(test_stat))
-  
-  # get_sd(tmle_fit, 1, 2)
-  # get_sd(tmle_fit, 2, 3)
-  # 
-  # sqrt((sd1^1) + (sd2^2))
-  # 
-  # sqrt(var(tmle_fit$estimates[[4]]$IC)/nrow(tmle_fit$estimates[[4]]$IC))
-  # 
-  # estimates = sapply(tmle_fit$estimates[1:3], function(x) x$psi)
-  # 
+  pv = 2 * pnorm(-abs(test_stat))
   
   ## MSM ##
   var_D <- cov(tm_fit$estimates[[4]]$IC)
@@ -101,110 +94,61 @@ get_sd  = function(tm_fit, stat1, stat2) {
   pval = 2 * pnorm(-abs(test_stat))
   
   #return(c(pval_beta, pval))
-  return(ate)
+  return(c(ate, pval, test_sd, beta_stat, pval_beta, se[1]))
 }
 
-##### now try for our data #####
-X = subset(dat, select = -c(dhc, y))
-## removed variables 
-##had to remove categorical that were non binary
+Xcont_date = subset(train, select = c(ga_at_anc1_by_lmp, ga_anc1_by_edd, ga_at_deliv_lmp, ga_at_delivery_by_ga_anc1, 
+                                      ga_at_delivery_by_edd_anc1, ga_at_delivery_by_fh_anc1))
 
-Xcont = subset(X, select = -c(m_stature, fuel, enough_food, ever_no_food, run_out_food, not_enough_food,
-                              hh_smoker, alc, sex))
-Xcat = subset(X, select = c(m_stature, fuel, enough_food, ever_no_food, run_out_food, not_enough_food,
-                              hh_smoker, alc, sex))
+Xcont = subset(train, select = -c(m_stature, fuel, enough_food, ever_no_food, run_out_food, not_enough_food,
+                                  hh_smoker, alc, sex, dhc, y,
+                                  ga_at_anc1_by_lmp, ga_anc1_by_edd, ga_at_deliv_lmp, ga_at_delivery_by_ga_anc1, 
+                                  ga_at_delivery_by_edd_anc1, ga_at_delivery_by_fh_anc1))
+Xcat = subset(train, select = c(m_stature, fuel, enough_food, ever_no_food, run_out_food, not_enough_food,
+                                hh_smoker, alc, sex))
 #current_a = current_a + runif(-0.1, 0.1, n = length(current_a))
 #dat[,Wnames[i]] <- current_a
-Wnames = names(Xcont)
+train[, names(Xcont)] <- Xcont + runif(0, 0.1, n = nrow(Xcont))
+Wnames = c(names(Xcont), names(Xcont_date))
 Wnames_cat = names(Xcat)
-dat[,Wnames] <- Xcont + runif(0, 0.1, n = nrow(Xcont))
-shifts = apply(X, 2, sd)
 
 #center and scale data first if 
 #pvals_beta = rep(NA, length(Wnames))
 #pvals = rep(NA, length(Wnames))
-ates = rep(NA, length(Wnames))
-for (i in 1:(length(Wnames))) {
-  dat = data.frame(dat)
-  node_list <- list(W = names(dat)[!(names(dat) %in% c(Wnames[i], "y", "X"))], A = Wnames[i], Y = "y")
-  node_list
-
-  #current_a = Xcont$fun_ht_anc1
-  current_a = dat[,which(names(dat) == Wnames[i])]
-  print(class(dat))
-  delta_grid <- c(-sd(current_a), 0,  sd(current_a))
-  #delta_grid <- c(-sd(current_a), 0,  sd(current_a))
-  delta_grid
-  #delta_grid <- seq(min(current_a), max(current_a), sd(current_a))
-  #seq(from = min(current_a), to = max(current_a), length.out = 3)
-
-  # initialize a tmle specification
-  tmle_spec <- tmle_vimshift_delta(shift_grid = delta_grid,
-                                   max_shifted_ratio = 3)
-  tmle_fit <- tmle3(tmle_spec, dat, node_list, learner_list)
+run_vim_shift = function(train, Wnames) {
   
-  ates[i] = get_sd(tmle_fit, 2, 3)
- 
-  # pv = get_sd(tmle_fit, 2, 3)
-  # pvals_beta[i] = pv[1]
-  # pvals[i] = pv[2]
+  ates = list()
+  for (i in 1:(length(Wnames))) {
+    dat = data.frame(train)
+    node_list <- list(W = names(dat)[!(names(dat) %in% c(Wnames[i], "y", "X"))], A = Wnames[i], Y = "y")
+    node_list
+    
+    #current_a = Xcont$fun_ht_anc1
+    current_a = dat[,which(names(dat) == Wnames[i])]
+    print(class(dat))
+    delta_grid <- c(-sd(current_a), 0,  sd(current_a))
+    #delta_grid <- c(-sd(current_a), 0,  sd(current_a))
+    delta_grid
+    #delta_grid <- seq(min(current_a), max(current_a), sd(current_a))
+    #seq(from = min(current_a), to = max(current_a), length.out = 3)
+    
+    # initialize a tmle specification
+    tmle_spec <- tmle_vimshift_delta(shift_grid = delta_grid,
+                                     max_shifted_ratio = 3)
+    tmle_fit <- tmle3(tmle_spec, dat, node_list, learner_list)
+    
+    ates[[i]] = get_sd(tmle_fit, 2, 3)
+    
+  }
+  
+  #load(file = "var_imp_vimpshift_26_apr_2019.Rdata")
+  names(ates) = Wnames
+  results_tab = round(do.call(rbind, ates), 6)
+  class(results_tab)
+  colnames(results_tab) <- c("ate", "pval", "test_sd", "beta_stat", "pval_beta", "se_beta", "se_intercept")
+  #results_tab
+  ordered_tab = results_tab[order(abs(results_tab[,1]), decreasing = T),]
+  return(rownames(ordered_tab)) 
 }
 
-# Wnames[index_order]
-# Wnames[pvals_beta <= .05]
-# Wnames[pvals_beta > 0.05]
-#save(pvals_beta, file = "pval_beta_vimshift.Rdata")
-#save(pvals, file = "pval_ttest_vimshift.Rdata")
-# Wnames[pvals <= .05]
-# Wnames[pvals > 0.05]
-
-##### NOW FOR CATEGORICAL VARIABLES ###
-
-lrnr_glm <- make_learner(Lrnr_glm)
-lrnr_mean <- make_learner(Lrnr_mean)
-lrnr_glmnet <- make_learner(Lrnr_glmnet)
-
-#lrnr_bart <- make_learner(Lrnr_bartMachine)
-stack <- make_learner(Stack, lrnr_glm, lrnr_mean, lrnr_glmnet)
-metalearner <- make_learner(Lrnr_nnls)
-sl <- Lrnr_sl$new(learners = stack, metalearner = metalearner)
-learner_list_cat <- list(Y = sl, A = sl)
-#dhc and fun_ht_1
-reg_ate = rep(NA, length(Wnames_cat))
-for (i in 1:length(Wnames_cat)) {
-  
-  dat = data.frame(dat)
-  node_list <- list(W = names(dat)[!(names(dat) %in% c(Wnames_cat[i], "y", "X"))], A = Wnames_cat[i], Y = "y")
-  node_list
-  
-  ########
-  tmle_spec <- tmle_ATE(1,0)
-  
-  # define data
-  tmle_task <- tmle_spec$make_tmle_task(dat, node_list)
-  
-  #this one is standard tmle (no c-tmle like approach)
-  initial_likelihood = tmle_spec$make_initial_likelihood(tmle_task, learner_list_cat)
-  updater <- tmle3_Update$new()
-  ########
-  reg_tmle = new_tmle(initial_likelihood, tmle3_Update$new(), tmle_task)
-  reg_ate[i] = reg_tmle$estimates[[1]]$psi
-  ########
-  
-}
-names(ates) <- Wnames
-names(reg_ate) <- Wnames_cat
-
-out = c(ates, reg_ate)
-
-index_order = order(abs(out), decreasing = T)
-final = out[index_order]
-names(final)
-
-#write.csv(final, file = "final_var_imp_decr.csv")
-##stepwise: verify what model it's choosing
-##in stepwise fashion, adding and subtracting vars
-##for which reason it added all 
-## table 1 (shows the random forest results)
-## compare the stimates with the true data and wants to put next to ea other
-## 
+run_vim_shift(train, Wnames)
