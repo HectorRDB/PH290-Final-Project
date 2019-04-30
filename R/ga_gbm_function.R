@@ -8,9 +8,12 @@ gbm <- function(data) {
     data <- data[, -j]
   }
   data$y <- as.factor(data$y)
-  gbmFit <- train( y ~ ., data = data,
-                    method = "gbm",
-                    verbose = FALSE)
-  return(varImp(gbmFit))
+  gbmFit <- train(y ~ ., data = data,
+                  method = "gbm",
+                  verbose = FALSE)
+  imp <- unlist(varImp(gbmFit)$importance)
+  names(imp) <- rownames(varImp(gbmFit)$importance)
+
+  return(imp)
 }
 
