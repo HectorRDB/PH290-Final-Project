@@ -44,15 +44,16 @@ concordance <- function(l1, l2) {
 }
 results <- map_dbl(7:15, function(k) {
   n <- 2^k
+  print(k)
   sim1 <- simulate_outcome(sample_data = sample_data, n = n, 
-                           complexity = 1)
+                           complexity = 0, seed = sample(1:10000, 1))
   trueOrder <- ranking_complex(ranking_info = sim1$ranking_info)
   gbOrder <- gbm(data = data.frame(sim1$covariates, y = sim1$y))
   
   return(concordance(trueOrder, gbOrder))
 })
 
-ggplot(data.frame(n = 2^(7:12), concordance = results),
+ggplot(data.frame(n = 2^(7:15), concordance = results),
        aes(x = n, y = results)) +
   geom_point() +
   my_theme() +
