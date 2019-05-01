@@ -1,3 +1,4 @@
+setwd("~/Documents/ptbi/ga_prediction")
 devtools::install_github("tlverse/tmle3shift", dependencies = T)
 devtools::install_github("tlverse/tmle3", dependencies = T)
 devtools::install_github('tlverse/sl3', dependencies = T)
@@ -56,6 +57,19 @@ g_learner <- sl_lrn_dens
 learner_list <- list(Y = Q_learner, A = g_learner)
 
 new_tmle = function(likelihd, update, tmle_task, tmle_spec, updater) {
+  
+  ###################
+  
+  tmle_spec <- tmle_ATE(1,0)
+  # define data
+  tmle_task <- tmle_spec$make_tmle_task(dat, node_list)
+  #this one is standard tmle (no c-tmle like approach)
+  initial_likelihood = tmle_spec$make_initial_likelihood(tmle_task, learner_list_cat)
+  updater <- tmle3_Update$new()
+  ########
+  reg_tmle = new_tmle(initial_likelihood, tmle3_Update$new(), tmle_task, tmle_spec, updater)
+  
+  ###################
   
   targeted_likelihood <- Targeted_Likelihood$new(likelihd, update)
   
@@ -207,5 +221,11 @@ run_combined_var_imp = function(train, Wnames, Wnames_cat){
   return(names(combined_ordered))
   
 }
+# 
+# for (i in 1:3){
+#   train.temp = x
+#   list.temp = run_combined_var_imp(train.temp, Wnames, Wnames_cat)
+#   return(list.temp)
+#   
+# }
 
-run_combined_var_imp(train, Wnames, Wnames_cat)
