@@ -21,10 +21,11 @@ library(ranger)
 library(sl3)
 library(tmle3)
 library(tmle3shift)
+library(here)
 
 #dat = read.csv('sample_ga_data_binomial.csv', row.names = 1)
 #trainb = read.csv('lmp_sample_data_binomial.csv', row.names = 1)
-train = read.csv('sample_ga_data_binomial_2019-04-26.csv', row.names = 1)
+train = read.csv(file = here("PH290-Final-Project/data", 'sample_ga_data_binomial_2019-04-26.csv'), row.names = 1)
 #dat = read.csv('lmp_sample_data_gauss.csv')
 #X = make_x(traing)
 
@@ -66,34 +67,19 @@ g_learner <- sl_lrn_dens
 learner_list <- list(Y = Q_learner, A = g_learner)
 
 new_tmle = function(likelihd, update, tmle_task, tmle_spec, updater) {
-
   
-  ###################
-  
-  tmle_spec <- tmle_ATE(1,0)
-  # define data
-  tmle_task <- tmle_spec$make_tmle_task(dat, node_list)
-  #this one is standard tmle (no c-tmle like approach)
-  initial_likelihood = tmle_spec$make_initial_likelihood(tmle_task, learner_list_cat)
-  updater <- tmle3_Update$new()
-  ########
-  reg_tmle = new_tmle(initial_likelihood, tmle3_Update$new(), tmle_task, tmle_spec, updater)
-  
-  ###################
-  
-
   targeted_likelihood <- Targeted_Likelihood$new(likelihd, update)
-
+  
   # define parameter
   tmle_params <- tmle_spec$make_params(tmle_task, targeted_likelihood)
   updater$tmle_params <- tmle_params
   ate <- tmle_params[[1]]
-
+  
   # fit tmle update
   tmle_fit <- fit_tmle3(tmle_task, targeted_likelihood, list(ate), update, max_it)
   #out = c(tmle_fit$summary$tmle_est, tmle_fit$summary$se, tmle_fit$summary$lower, tmle_fit$summary$upper)
   return(tmle_fit)
-
+  
 }
 
 get_sd  = function(tm_fit, stat1, stat2) {
@@ -106,6 +92,8 @@ get_sd  = function(tm_fit, stat1, stat2) {
   test_stat = ((tm_fit$estimates[[stat2]]$psi) - (tm_fit$estimates[[stat1]]$psi)) /test_sd
   ate = tm_fit$estimates[[stat2]]$psi - tm_fit$estimates[[stat1]]$psi
   pv = 2 * pnorm(-abs(test_stat))
+  lower = ate - (1.96 * test_sd)
+  upper = ate + (1.96 * test_sd)
 
   ## MSM ##
   var_D <- cov(tm_fit$estimates[[4]]$IC)
@@ -117,7 +105,7 @@ get_sd  = function(tm_fit, stat1, stat2) {
   pval = 2 * pnorm(-abs(test_stat))
 
   #return(c(pval_beta, pval))
-  return(c(ate, pval, test_sd, beta_stat, pval_beta, se))
+  return(c(ate, lower, upper, pval, test_sd, beta_stat, pval_beta, se))
 }
 
 Xcont_date = subset(train, select = c(ga_at_anc1_by_lmp, ga_anc1_by_edd, ga_at_deliv_lmp, ga_at_delivery_by_ga_anc1,
@@ -165,9 +153,9 @@ run_vim_shift = function(train, Wnames) {
   names(ates) = Wnames
   results_tab = round(do.call(rbind, ates), 6)
   #results_tab
-  colnames(results_tab) <- c("ate", "pval", "test_sd", "beta_stat", "pval_beta", "se_int", "se_beta")
-  results_tab
-  ordered_tab = results_tab[order(abs(results_tab[,1]), decreasing = T),]
+  colnames(results_tab) <- c("ate", "lower", "upper", "pval", "test_sd", "beta_stat", "pval_beta", "se_int", "se_beta")
+  results_tab = data.frame(results_tab)
+  ordered_tab = results_tab[order(abs(results_tab$test_sd)),]
   return(ordered_tab)
 }
 
@@ -190,6 +178,7 @@ learner_list_cat <- list(Y = sl, A = sl)
 run_cat_vars = function(train, Wnames_cat) {
   reg_ate = list()
   for (i in 1:length(Wnames_cat)) {
+    print(i)
 
     dat = data.frame(train)
     node_list <- list(W = names(dat)[!(names(dat) %in% c(Wnames_cat[i], "y", "X"))], A = Wnames_cat[i], Y = "y")
@@ -210,15 +199,17 @@ run_cat_vars = function(train, Wnames_cat) {
     test_sd = sqrt(var(reg_tmle$estimates[[1]]$IC)/nrow(train))
     test_stat = estim/test_sd
     pval = 2 * pnorm(-abs(test_stat))
-    reg_ate[[i]] = c(estim, pval, test_sd)
+    lower = reg_tmle$summary$lower
+    upper = reg_tmle$summary$upper
+    reg_ate[[i]] = c(estim, lower, upper, pval, test_sd)
     ########
   }
   names(reg_ate) = Wnames_cat
   results_tab = round(do.call(rbind, reg_ate), 6)
   #results_tab
-  colnames(results_tab) <- c("ate", "pval", "test_sd")
-  results_tab
-  ordered_tab = results_tab[order(abs(results_tab[,1]), decreasing = T),]
+  colnames(results_tab) <- c("ate", "lower", "upper", "pval", "test_sd")
+  results_tab = data.frame(results_tab)
+  ordered_tab = results_tab[order(abs(results_tab$test_sd)),]
   return(ordered_tab)
 }
 
@@ -228,7 +219,9 @@ run_combined_var_imp = function(train, Wnames, Wnames_cat){
 
   conts = run_vim_shift(train, Wnames)
   cat = run_cat_vars(train, Wnames_cat)
-  combined_ordered = sort(abs(c(conts[, 1], cat[, 1])), decreasing = T)
+  combined = abs(c(conts$pval, cat$pval))
+  names(combined) = c(rownames(conts), rownames(cat) )
+  combined_ordered = sort(abs(combined))
   return(names(combined_ordered))
 
 }
