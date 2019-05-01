@@ -14,15 +14,19 @@ simulate_covariate <- function(data, n, type) {
   if (type == "norm") {
     return(rnorm(n = n, mean = mean(data), sd = sd(data)))
   }
+  if (type == "lnorm") {
+    return(exp(rnorm(n = n, mean = mean(log(data)), sd = sd(log(data)))))
+  }
 }
 
 simulate_covariates <- function(sample_data, n) {
   # Define the distribution functions for each variable
-  types <- c("multi", "norm", "pois", "bern", "pois", "pois", "pois", "bern",
+  types <- c("multi", "lnorm", "lnorm", "norm", "norm", "lnorm", "norm", "norm",
+             "norm", "pois", "bern", "pois", "pois", "pois", "bern",
              "bern", "bern", "bern", "bern", "bern", "bern", "bern", "norm",
              "pois", "pois", "multi", "multi")
   # For each column, simulate
-  return(map2_df(sample_data[, -c(1, 22)], types, .f = simulate_covariate, n = n))
+  return(map2_df(sample_data[, -c(1, 29)], types, .f = simulate_covariate, n = n))
 }
 
 preds <- function(k, complexity) {
@@ -50,7 +54,8 @@ preds <- function(k, complexity) {
   return(list(interactions = interactions,
               powers = powers,
               betas = betas,
-              prob = prob))
+              prob = prob,
+              degrees = degrees))
 }
 
 simulate_outcome <- function(sample_data, n, complexity = 0, seed = 47291) {
@@ -78,6 +83,7 @@ ranking_simple <- function(ranking_info) {
   interactions <- ranking_info$interactions
   powers <- ranking_info$powers
   betas <- ranking_info$betas
+  degrees <- ranking_info$degrees
   complexity <- length(powers)
   k <- length(betas) - 3 * complexity
   strength <- betas[1:k]
@@ -98,6 +104,7 @@ ranking_complex <- function(ranking_info) {
   interactions <- ranking_info$interactions
   powers <- ranking_info$powers
   betas <- ranking_info$betas
+  degrees <- ranking_info$degrees
   complexity <- length(powers)
   strength <- rep(0, k)
   covariates <- ranking_info$covariates_init
@@ -105,7 +112,7 @@ ranking_complex <- function(ranking_info) {
     linear_effect <- betas[i] * covariates[, i]
     if (complexity > 0) {
       if (i %in% powers) {
-        j <- which(powers = i)
+        j <- which(powers == i)
         power_effect <- betas[k + j] * (covariates[, i])^(degrees[j])
       } else {
         power_effect <- 0
@@ -115,8 +122,8 @@ ranking_complex <- function(ranking_info) {
         for (j in 1:ncol(interactions)) {
           if (i %in% interactions[,j]) {
             interaction_effect <- interaction_effect +
-              betas[k + j + complexity] * covariates[, interaction_effect[1, j]] *
-              covariates[, interaction_effect[2, j]]
+              betas[k + j + complexity] * covariates[, interactions[1, j]] *
+              covariates[, interactions[2, j]]
           }
         }
       }
@@ -124,8 +131,10 @@ ranking_complex <- function(ranking_info) {
       power_effect <- 0
       interaction_effect <- 0
     }
-    effect <- linear_effect[,1] + power_effect + interaction_effect
-    strength[i] <- quantile(effect, 0.8) - quantile(effect, 0.2)
+    effect <- linear_effect[, 1] + power_effect + interaction_effect
+    strength[i] <- quantile(unlist(effect), 0.8) -
+                   quantile(unlist(effect), 0.2)
   }
+  names(strength) <- colnames(covariates)
   return(strength)
 }

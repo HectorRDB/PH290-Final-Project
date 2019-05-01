@@ -1,10 +1,19 @@
-setwd("~/Documents/ptbi/ga_prediction")
+
+
 devtools::install_github("tlverse/tmle3shift", dependencies = T)
 devtools::install_github("tlverse/tmle3", dependencies = T)
 devtools::install_github('tlverse/sl3', dependencies = T)
 
 devtools::install_github('osofr/condensier', build_vignettes = FALSE)
 devtools::install_github('osofr/simcausal', build_vignettes = FALSE)
+
+# devtools::install_github("tlverse/tmle3shift", dependencies = T)
+# devtools::install_github("tlverse/tmle3", dependencies = T)
+# devtools::install_github('tlverse/sl3', dependencies = T)
+#
+# devtools::install_github('osofr/condensier', build_vignettes = FALSE)
+# devtools::install_github('osofr/simcausal', build_vignettes = FALSE)
+
 library(tidyverse)
 library(data.table)
 library(condensier)
@@ -57,6 +66,7 @@ g_learner <- sl_lrn_dens
 learner_list <- list(Y = Q_learner, A = g_learner)
 
 new_tmle = function(likelihd, update, tmle_task, tmle_spec, updater) {
+
   
   ###################
   
@@ -71,18 +81,19 @@ new_tmle = function(likelihd, update, tmle_task, tmle_spec, updater) {
   
   ###################
   
+
   targeted_likelihood <- Targeted_Likelihood$new(likelihd, update)
-  
+
   # define parameter
   tmle_params <- tmle_spec$make_params(tmle_task, targeted_likelihood)
   updater$tmle_params <- tmle_params
   ate <- tmle_params[[1]]
-  
+
   # fit tmle update
   tmle_fit <- fit_tmle3(tmle_task, targeted_likelihood, list(ate), update, max_it)
   #out = c(tmle_fit$summary$tmle_est, tmle_fit$summary$se, tmle_fit$summary$lower, tmle_fit$summary$upper)
   return(tmle_fit)
-  
+
 }
 
 get_sd  = function(tm_fit, stat1, stat2) {
@@ -90,12 +101,12 @@ get_sd  = function(tm_fit, stat1, stat2) {
   sd1 = sqrt(var(tm_fit$estimates[[1]]$IC)/length(tm_fit$estimates[[1]]$IC))
   sd2 = sqrt(var(tm_fit$estimates[[2]]$IC)/length(tm_fit$estimates[[2]]$IC))
   sd3 = sqrt(var(tm_fit$estimates[[3]]$IC)/length(tm_fit$estimates[[3]]$IC))
-  
+
   test_sd = sqrt(var(tm_fit$estimates[[stat2]]$IC - tm_fit$estimates[[stat1]]$IC)/nrow(tm_fit$estimates[[stat2]]$IC))
   test_stat = ((tm_fit$estimates[[stat2]]$psi) - (tm_fit$estimates[[stat1]]$psi)) /test_sd
   ate = tm_fit$estimates[[stat2]]$psi - tm_fit$estimates[[stat1]]$psi
   pv = 2 * pnorm(-abs(test_stat))
-  
+
   ## MSM ##
   var_D <- cov(tm_fit$estimates[[4]]$IC)
   n <- nrow(tm_fit$estimates[[4]]$IC)
@@ -104,17 +115,17 @@ get_sd  = function(tm_fit, stat1, stat2) {
   beta_stat = tm_fit$estimates[[4]]$psi[2] / (se[2])
   pval_beta = 2 * pnorm(-abs(beta_stat))
   pval = 2 * pnorm(-abs(test_stat))
-  
+
   #return(c(pval_beta, pval))
   return(c(ate, pval, test_sd, beta_stat, pval_beta, se))
 }
 
-Xcont_date = subset(train, select = c(ga_at_anc1_by_lmp, ga_anc1_by_edd, ga_at_deliv_lmp, ga_at_delivery_by_ga_anc1, 
+Xcont_date = subset(train, select = c(ga_at_anc1_by_lmp, ga_anc1_by_edd, ga_at_deliv_lmp, ga_at_delivery_by_ga_anc1,
                                       ga_at_delivery_by_edd_anc1, ga_at_delivery_by_fh_anc1))
 
 Xcont = subset(train, select = -c(m_stature, fuel, enough_food, ever_no_food, run_out_food, not_enough_food,
                                   hh_smoker, alc, sex, dhc, y,
-                                  ga_at_anc1_by_lmp, ga_anc1_by_edd, ga_at_deliv_lmp, ga_at_delivery_by_ga_anc1, 
+                                  ga_at_anc1_by_lmp, ga_anc1_by_edd, ga_at_deliv_lmp, ga_at_delivery_by_ga_anc1,
                                   ga_at_delivery_by_edd_anc1, ga_at_delivery_by_fh_anc1))
 Xcat = subset(train, select = c(m_stature, fuel, enough_food, ever_no_food, run_out_food, not_enough_food,
                                 hh_smoker, alc, sex))
@@ -126,13 +137,13 @@ Wnames_cat = names(Xcat)
 
  ### stoachasti txt regime for continuous vars only
 run_vim_shift = function(train, Wnames) {
-  
+
   ates = list()
   for (i in 1:(length(Wnames))) {
     dat = data.frame(train)
     node_list <- list(W = names(dat)[!(names(dat) %in% c(Wnames[i], "y", "X"))], A = Wnames[i], Y = "y")
     node_list
-    
+
     #current_a = Xcont$fun_ht_anc1
     current_a = dat[,which(names(dat) == Wnames[i])]
     print(class(dat))
@@ -141,14 +152,14 @@ run_vim_shift = function(train, Wnames) {
     delta_grid
     #delta_grid <- seq(min(current_a), max(current_a), sd(current_a))
     #seq(from = min(current_a), to = max(current_a), length.out = 3)
-    
+
     # initialize a tmle specification
     tmle_spec <- tmle_vimshift_delta(shift_grid = delta_grid,
                                      max_shifted_ratio = 3)
     tmle_fit <- tmle3(tmle_spec, dat, node_list, learner_list)
-    
+
     ates[[i]] = get_sd(tmle_fit, 2, 3)
-    
+
   }
   #load(file = "var_imp_vimpshift_26_apr_2019.Rdata")
   names(ates) = Wnames
@@ -157,7 +168,7 @@ run_vim_shift = function(train, Wnames) {
   colnames(results_tab) <- c("ate", "pval", "test_sd", "beta_stat", "pval_beta", "se_int", "se_beta")
   results_tab
   ordered_tab = results_tab[order(abs(results_tab[,1]), decreasing = T),]
-  return(ordered_tab) 
+  return(ordered_tab)
 }
 
 #save(ates, file = "var_imp_vimpshift_26_apr_2019.Rdata")
@@ -179,17 +190,17 @@ learner_list_cat <- list(Y = sl, A = sl)
 run_cat_vars = function(train, Wnames_cat) {
   reg_ate = list()
   for (i in 1:length(Wnames_cat)) {
-    
+
     dat = data.frame(train)
     node_list <- list(W = names(dat)[!(names(dat) %in% c(Wnames_cat[i], "y", "X"))], A = Wnames_cat[i], Y = "y")
     node_list
-    
+
     ########
     tmle_spec <- tmle_ATE(1,0)
-    
+
     # define data
     tmle_task <- tmle_spec$make_tmle_task(dat, node_list)
-    
+
     #this one is standard tmle (no c-tmle like approach)
     initial_likelihood = tmle_spec$make_initial_likelihood(tmle_task, learner_list_cat)
     updater <- tmle3_Update$new()
@@ -208,18 +219,18 @@ run_cat_vars = function(train, Wnames_cat) {
   colnames(results_tab) <- c("ate", "pval", "test_sd")
   results_tab
   ordered_tab = results_tab[order(abs(results_tab[,1]), decreasing = T),]
-  return(ordered_tab) 
+  return(ordered_tab)
 }
 
 ##combine rankings for cat vars and continuous vars
 
 run_combined_var_imp = function(train, Wnames, Wnames_cat){
-  
+
   conts = run_vim_shift(train, Wnames)
   cat = run_cat_vars(train, Wnames_cat)
   combined_ordered = sort(abs(c(conts[, 1], cat[, 1])), decreasing = T)
   return(names(combined_ordered))
-  
+
 }
 # 
 # for (i in 1:3){
@@ -228,4 +239,7 @@ run_combined_var_imp = function(train, Wnames, Wnames_cat){
 #   return(list.temp)
 #   
 # }
+
+
+run_combined_var_imp(train, Wnames, Wnames_cat)
 
