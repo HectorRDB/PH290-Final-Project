@@ -178,7 +178,6 @@ learner_list_cat <- list(Y = sl, A = sl)
 run_cat_vars = function(train, Wnames_cat) {
   reg_ate = list()
   for (i in 1:length(Wnames_cat)) {
-    print(i)
 
     dat = data.frame(train)
     node_list <- list(W = names(dat)[!(names(dat) %in% c(Wnames_cat[i], "y", "X"))], A = Wnames_cat[i], Y = "y")
