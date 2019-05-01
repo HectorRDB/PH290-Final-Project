@@ -28,56 +28,54 @@ rm(libs)
 sample_data <- read.csv(here("data", "sample_ga_data_binomial_2019-04-26.csv"))
 source(here("R", "sim_variables.R"))
 source(here("R", "ga_gbm_function.R"))
-# source(here("R", "vimshift_ph290_project.R"))
+source(here("R", "vimshift_ph290_project.R"))
+
+concordance <- function(l1, l2) {
+  con <- map_dbl(1:length(l1), function(i) {
+    sum(names(l1[1:i]) %in% names(l2[1:i]))}
+  )
+  return(sum(con))
+}
 ```
 
 # Impact of n on results
 
+The idea would be to repeat this over many iterations, changing the seed in the __simulate_outcome_ function everytime.
+This explains how to do one run.
+
 ```{r}
-concordance <- function(l1, l2) {
-  r1 <- sort(l1, decreasing = TRUE)
-  r2 <- sort(l2, decreasing = TRUE)
-  con <- map_dbl(1:length(l1), function(i) {
-    sum(names(r1[1:i]) %in% names(r2[1:i]))}
-  )
-  return(sum(con))
-}
-results <- map_dbl(7:15, function(k) {
+results <- map_df(7:15, function(k) {
   n <- 2^k
   print(k)
   sim1 <- simulate_outcome(sample_data = sample_data, n = n, 
                            complexity = 0, seed = sample(1:10000, 1))
   trueOrder <- ranking_complex(ranking_info = sim1$ranking_info)
   gbOrder <- gbm(data = data.frame(sim1$covariates, y = sim1$y))
-  
-  return(concordance(trueOrder, gbOrder))
+  vimshiftOrder <- run_combined_var_imp(train = data.frame(sim1$covariates,
+                                                           y = as.integer(sim1$y)),
+                                        Wnames, Wnames_cat)
+  return(concordance(sort(trueOrder, decreasing = TRUE),
+                     sort(gbOrder, decreasing = TRUE)),
+         concordance(sort(trueOrder, decreasing = TRUE), vimshiftOrder))
 })
-
-ggplot(data.frame(n = 2^(7:15), concordance = results),
-       aes(x = n, y = results)) +
-  geom_point() +
-  my_theme() +
-  scale_x_log10() +
-  ggtitle("Concordance between the true variable importance ranking\nand the estimated ranling with other methods for various values of n")
 ```
 
 # Impact of the complexity on results
 
+Likewise, it would great to see the impact of complexity on the results. This would need to be done over many runs as well, changing the seed.
+
 ```{r}
-results <- map_dbl(0:10, function(i) {
+results <- map_df(0:10, function(i) {
   print(i)
   sim1 <- simulate_outcome(sample_data = sample_data, n = 1000, 
                            complexity = i)
   trueOrder <- ranking_complex(ranking_info = sim1$ranking_info)
   gbOrder <- gbm(data = data.frame(sim1$covariates, y = sim1$y))
-  
-  return(concordance(trueOrder, gbOrder))
+  vimshiftOrder <- run_combined_var_imp(train = data.frame(sim1$covariates,
+                                                           y = as.integer(sim1$y)),
+                                        Wnames, Wnames_cat)
+  return(concordance(trueOrder, gbOrder),
+         concordance(trueOrder, vimshiftOrder))
 })
-
-ggplot(data.frame(complexity = 0:10, concordance = results),
-       aes(x = complexity, y = results)) +
-  geom_point() +
-  my_theme() +
-  ggtitle("Concordance between the true variable importance ranking\nand the estimated ranling with other methods for various values of complexity")
 ```
 
