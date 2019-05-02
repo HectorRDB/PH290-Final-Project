@@ -6,10 +6,12 @@ simulate_covariate <- function(data, n, type) {
       return(sample(x = data, size = n, replace = TRUE))
   }
   if (type == "multi") {
-    return(sample(x = data, size = n, replace = TRUE))
+    return(sample(x = data, size = n, replace = TRUE) +
+             runif(n, -.0005, 0.0005))
   }
   if (type == "pois") {
-    return(rpois(n = n, lambda = mean(data)))
+    return(rpois(n = n, lambda = mean(data)) +
+           runif(n, -.0005, 0.0005))
   }
   if (type == "norm") {
     return(rnorm(n = n, mean = mean(data), sd = sd(data)))
