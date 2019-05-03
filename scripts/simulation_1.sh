@@ -3,5 +3,5 @@
 #SBATCH --cpus-per-task=30
 #SBATCH --nodes=1
 
-file='R/simulation_1.R'
+file='R/simulation_1'
 R CMD BATCH --no-save ${file}.R ${file}.out

@@ -12,6 +12,6 @@ for (i in 1:7) {
 file <- read_lines(here("scripts", "run.sh"))
 for (i in 1:7) {
   f <- file
-  f[6] <- paste0("file='R/simulation_", i, ".R'")
+  f[6] <- paste0("file='R/simulation_", i, "'")
   write_lines(f, path = here("scripts", paste0("simulation_", i, ".sh")))
 }
