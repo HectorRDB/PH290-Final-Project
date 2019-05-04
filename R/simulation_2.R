@@ -29,9 +29,9 @@ results <- foreach(i = 1:60) %dopar% {
                            complexity = 1, seed = sample(1:10000, 1))
   trueOrder <- ranking_complex(ranking_info = sim1$ranking_info)
   gbOrder <- gbm(data = data.frame(sim1$covariates, y = sim1$y))
-  vimshiftOrder <- run_combined_var_imp(train = data.frame(sim1$covariates,
+  suppressMessages(vimshiftOrder <- run_combined_var_imp(train = data.frame(sim1$covariates,
                                                            y = as.integer(sim1$y)),
-                                        Wnames, Wnames_cat)
+                                        Wnames, Wnames_cat))
   c(concordance(names(sort(trueOrder, decreasing = TRUE)),
                 names(sort(gbOrder, decreasing = TRUE))),
     concordance(names(sort(trueOrder, decreasing = TRUE)), vimshiftOrder))
@@ -46,9 +46,9 @@ results <- foreach(i = 1:60) %dopar% {
                            complexity = complexity, seed = sample(1:10000, 1))
   trueOrder <- ranking_complex(ranking_info = sim1$ranking_info)
   gbOrder <- gbm(data = data.frame(sim1$covariates, y = sim1$y))
-  vimshiftOrder <- run_combined_var_imp(train = data.frame(sim1$covariates,
+  suppressMessages(vimshiftOrder <- run_combined_var_imp(train = data.frame(sim1$covariates,
                                                            y = as.integer(sim1$y)),
-                                        Wnames, Wnames_cat)
+                                        Wnames, Wnames_cat))
   c(concordance(names(sort(trueOrder, decreasing = TRUE)),
                 names(sort(gbOrder, decreasing = TRUE))),
     concordance(names(sort(trueOrder, decreasing = TRUE)), vimshiftOrder))
