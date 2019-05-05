@@ -17,14 +17,15 @@ concordance <- function(l1, l2) {
 }
 
 library("doParallel")
-nCores <- 30
+nCores <- 10
+reps <- 10
 registerDoParallel(nCores)
-
+k <- 6
 k <- 6
 n <- 3^k
 
 print("Running for various seed for n")
-results <- foreach(i = 1:60) %dopar% {
+results <- foreach(i = 1:reps) %dopar% {
   sim1 <- simulate_outcome(sample_data = sample_data, n = n,
                            complexity = 1, seed = sample(1:10000, 1))
   trueOrder <- ranking_complex(ranking_info = sim1$ranking_info)
@@ -39,9 +40,9 @@ results <- foreach(i = 1:60) %dopar% {
 
 saveRDS(results, file = here("data", paste0("n_", n, ".rds")))
 
-print("Running for various seed for complexity")
 complexity <- 6
-results <- foreach(i = 1:60) %dopar% {
+complexity <- 1
+results <- foreach(i = 1:reps) %dopar% {
   sim1 <- simulate_outcome(sample_data = sample_data, n = 1000,
                            complexity = complexity, seed = sample(1:10000, 1))
   trueOrder <- ranking_complex(ranking_info = sim1$ranking_info)
