@@ -24,7 +24,7 @@ library(tmle3)
 library(tmle3shift)
 library(here)
 
-train = read.csv(file = here("data", 'sample_ga_data_binomial_2019-04-26.csv'),
+train = read.csv(file = here("PH290-Final-Project/data", 'sample_ga_data_binomial_2019-04-26.csv'),
                  row.names = 1)
 
 lrn1 <- Lrnr_mean$new()
@@ -122,6 +122,7 @@ Wnames_cat <- names(Xcat)
 run_vim_shift <- function(train, Wnames) {
   ates <- list()
   for (i in 1:(length(Wnames))) {
+    print(Wnames[i])
     dat <- data.frame(train)
     node_list <- list(W = names(dat)[!(names(dat) %in% c(Wnames[i], "y", "X"))],
                       A = Wnames[i], Y = "y")
