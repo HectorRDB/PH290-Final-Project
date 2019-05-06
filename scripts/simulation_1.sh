@@ -1,7 +1,10 @@
 #!/bin/bash
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=15
-#SBATCH --nodes=1
+#
+#$ -cwd
+#$ -V
+#$ -j y
+#$ -S /bin/bash
+#
 
 file='R/simulation_1'
 R --vanilla < ${file}.R > ${file}.Rout

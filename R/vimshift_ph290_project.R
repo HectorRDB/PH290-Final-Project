@@ -1,8 +1,8 @@
-if (!"tmle3" %in% installed.packages()) {
-  devtools::install_github("tlverse/tmle3", dependencies = T)
-}
 if (!"tmle3shift" %in% installed.packages()) {
   devtools::install_github("tlverse/tmle3shift", dependencies = T)
+}
+if (!"tmle3" %in% installed.packages()) {
+  devtools::install_github("tlverse/tmle3", dependencies = T)
 }
 if (!"sl3" %in% installed.packages()) {
   devtools::install_github('tlverse/sl3', dependencies = T)
