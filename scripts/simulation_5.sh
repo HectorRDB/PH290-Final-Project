@@ -4,4 +4,4 @@
 #SBATCH --nodes=1
 
 file='R/simulation_5'
-R CMD BATCH --no-save ${file}.R ${file}.out
+R --vanilla < ${file}.R > ${file}.Rout
