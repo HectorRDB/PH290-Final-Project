@@ -20,8 +20,8 @@ library("doParallel")
 nCores <- 10
 reps <- 10
 registerDoParallel(nCores)
+
 k <- 11
-k <- 6
 n <- 3^k
 
 print("Running for various seed for n")
@@ -40,7 +40,7 @@ results <- foreach(i = 1:reps) %dopar% {
 
 saveRDS(results, file = here("data", paste0("n_", n, ".rds")))
 
-complexity <- 1
+print("Running for various seed for complexity")
 complexity <- 1
 results <- foreach(i = 1:reps) %dopar% {
   sim1 <- simulate_outcome(sample_data = sample_data, n = 1000,
