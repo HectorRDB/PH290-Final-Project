@@ -24,7 +24,7 @@ library(tmle3)
 library(tmle3shift)
 library(here)
 
-train = read.csv(file = here("PH290-Final-Project/data", 'sample_ga_data_binomial_2019-04-26.csv'),
+train = read.csv(file = here("data", 'sample_ga_data_binomial_2019-04-26.csv'),
                  row.names = 1)
 
 lrn1 <- Lrnr_mean$new()
@@ -114,7 +114,7 @@ Xcat <- subset(train, select = c(
 ))
 # current_a = current_a + runif(-0.1, 0.1, n = length(current_a))
 # dat[,Wnames[i]] <- current_a
-train[, names(Xcont)] <- Xcont + runif(0, 0.1, n = nrow(Xcont))
+train[, names(Xcont)] <- Xcont + runif(-.01, 0.01, n = nrow(Xcont))
 Wnames <- c(names(Xcont), names(Xcont_date))
 Wnames_cat <- names(Xcat)
 
@@ -148,7 +148,7 @@ run_vim_shift <- function(train, Wnames) {
   }
   # load(file = "var_imp_vimpshift_26_apr_2019.Rdata")
   names(ates) <- Wnames
-  results_tab <- round(do.call(rbind, ates), 6)
+  results_tab <- (do.call(rbind, ates))
   # results_tab
   colnames(results_tab) <- c("ate", "lower", "upper", "pval", "test_sd",
                              "beta_stat", "pval_beta", "se_int", "se_beta")
@@ -156,8 +156,6 @@ run_vim_shift <- function(train, Wnames) {
   ordered_tab <- results_tab[order(abs(results_tab$test_sd)), ]
   return(ordered_tab)
 }
-
-# save(ates, file = "var_imp_vimpshift_26_apr_2019.Rdata")
 
 
 ##### NOW FOR CATEGORICAL VARIABLES ###
@@ -202,7 +200,7 @@ run_cat_vars <- function(train, Wnames_cat) {
     ########
   }
   names(reg_ate) <- Wnames_cat
-  results_tab <- round(do.call(rbind, reg_ate), 6)
+  results_tab <- (do.call(rbind, reg_ate))
   # results_tab
   colnames(results_tab) <- c("ate", "lower", "upper", "pval", "test_sd")
   results_tab <- data.frame(results_tab)
@@ -218,7 +216,19 @@ run_combined_var_imp <- function(train, Wnames, Wnames_cat) {
   combined <- abs(c(conts$pval, cat$pval))
   names(combined) <- c(rownames(conts), rownames(cat))
   combined_ordered <- sort(abs(combined))
-  return(names(combined_ordered))
+  out = list(names(combined_ordered), conts, cat)
+  names(out) = c("ordered_names", "inference_conts", "inference_categor")
+  return(out)
 }
 
-# run_combined_var_imp(train, Wnames, Wnames_cat)
+##outputs list of sorted names in first element and other two elements contain inference
+# var_imp_list = run_combined_var_imp(train, Wnames, Wnames_cat)
+# ##to output just ordered list
+# var_imp_list$ordered_names
+# #save(var_imp_list, file = "var_imp_list.Rdata")
+# library(xtable)
+# sorted_cts = var_imp_list$inference_conts[order(var_imp_list$inference_conts$pval),c(1:3,5,4)]
+# sorted_cts
+# names(sorted_cts) = c("RiskDiff", "Lower", "Upper", "SE Est", "P-Val")
+# sorted_cts
+# xtable(var_imp_list$inference_conts)
