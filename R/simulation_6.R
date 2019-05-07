@@ -34,10 +34,10 @@ results <- foreach(i = 1:reps) %dopar% {
   suppressMessages(vimshiftOrder <- run_combined_var_imp(train = data.frame(sim1$covariates,
                                                            y = as.integer(sim1$y)),
                                         Wnames, Wnames_cat))
-  c(concordance(names(sort(trueOrder, decreasing = TRUE)),
-                names(sort(gbOrder, decreasing = TRUE))),
-    concordance(names(sort(trueOrder, decreasing = TRUE)), vimshiftOrder))}
-  )
+  list("truth" = trueOrder,
+       "gb" = gbOrder,
+       "vim" = vimshiftOrder)
+  })
 }
 
 saveRDS(results, file = here("data", paste0("n_", n, ".rds")))
@@ -53,9 +53,10 @@ results <- foreach(i = 1:reps) %dopar% {
   suppressMessages(vimshiftOrder <- run_combined_var_imp(train = data.frame(sim1$covariates,
                                                            y = as.integer(sim1$y)),
                                         Wnames, Wnames_cat))
-  c(concordance(names(sort(trueOrder, decreasing = TRUE)),
-                names(sort(gbOrder, decreasing = TRUE))),
-    concordance(names(sort(trueOrder, decreasing = TRUE)), vimshiftOrder))}
+  list("truth" = trueOrder,
+       "gb" = gbOrder,
+       "vim" = vimshiftOrder)
+  }
   )
 }
 
