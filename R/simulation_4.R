@@ -26,7 +26,8 @@ n <- 3^k
 
 print("Running for various seed for n")
 results <- foreach(i = 1:reps) %dopar% {
-  sim1 <- simulate_outcome(sample_data = sample_data, n = n,
+  tryCatch(
+  {sim1 <- simulate_outcome(sample_data = sample_data, n = n,
                            complexity = 1, seed = sample(1:10000, 1))
   trueOrder <- ranking_complex(ranking_info = sim1$ranking_info)
   gbOrder <- gbm(data = data.frame(sim1$covariates, y = sim1$y))
@@ -35,15 +36,17 @@ results <- foreach(i = 1:reps) %dopar% {
                                         Wnames, Wnames_cat))
   c(concordance(names(sort(trueOrder, decreasing = TRUE)),
                 names(sort(gbOrder, decreasing = TRUE))),
-    concordance(names(sort(trueOrder, decreasing = TRUE)), vimshiftOrder))
+    concordance(names(sort(trueOrder, decreasing = TRUE)), vimshiftOrder))}
+  )
 }
 
 saveRDS(results, file = here("data", paste0("n_", n, ".rds")))
-
-print("Running for various seed for complexity")
 complexity <- 3
+print("Running for various seed for complexity")
+complexity <- 1
 results <- foreach(i = 1:reps) %dopar% {
-  sim1 <- simulate_outcome(sample_data = sample_data, n = 1000,
+  tryCatch(
+  {sim1 <- simulate_outcome(sample_data = sample_data, n = 1000,
                            complexity = complexity, seed = sample(1:10000, 1))
   trueOrder <- ranking_complex(ranking_info = sim1$ranking_info)
   gbOrder <- gbm(data = data.frame(sim1$covariates, y = sim1$y))
@@ -52,7 +55,8 @@ results <- foreach(i = 1:reps) %dopar% {
                                         Wnames, Wnames_cat))
   c(concordance(names(sort(trueOrder, decreasing = TRUE)),
                 names(sort(gbOrder, decreasing = TRUE))),
-    concordance(names(sort(trueOrder, decreasing = TRUE)), vimshiftOrder))
+    concordance(names(sort(trueOrder, decreasing = TRUE)), vimshiftOrder))}
+  )
 }
 
 saveRDS(results, file = here("data", paste0("complexity_", complexity, ".rds")))
