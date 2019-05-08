@@ -1,17 +1,24 @@
 if (!"tmle3shift" %in% installed.packages()) {
-  devtools::install_github("tlverse/tmle3shift", dependencies = T)
+  devtools::install_github("tlverse/tmle3shift@fix-vim-bound", dependencies = T)
 }
 if (!"tmle3" %in% installed.packages()) {
   devtools::install_github("tlverse/tmle3", dependencies = T)
 }
 if (!"sl3" %in% installed.packages()) {
-  devtools::install_github('tlverse/sl3', dependencies = T)
+  devtools::install_github('tlverse/sl3', dependencies = T, force= T)
 }
 if (!"condensier" %in% installed.packages()) {
   devtools::install_github('osofr/condensier', build_vignettes = FALSE)
 }
 if (!"simcausal" %in% installed.packages()) {
   devtools::install_github('osofr/simcausal', build_vignettes = FALSE)
+}
+if (!'RFCDE' %in% installed.packages()) {
+  devtools::install_github("tpospisi/RFCDE/r")
+}
+if (!'haldensify' %in% installed.packages()) {
+  devtools::install_github('nhejazi/haldensify')
+  
 }
 
 
@@ -23,6 +30,7 @@ library(sl3)
 library(tmle3)
 library(tmle3shift)
 library(here)
+library(haldensify)
 
 train = read.csv(file = here("data", 'sample_ga_data_binomial_2019-04-26.csv'),
                  row.names = 1)
@@ -36,25 +44,22 @@ sl_lrn <- Lrnr_sl$new(
 )
 
 # learners used for conditional density regression (e.g., propensity score)
-lrn1_dens <- Lrnr_condensier$new(
-  nbins = 10, bin_estimator = lrn1,
-  bin_method = "dhist"
+lrn_rfcde <- Lrnr_rfcde$new(
+  n_trees = 200, node_size = 5,
+  n_basis = 31, output_type = "observed"
 )
-lrn2_dens <- Lrnr_condensier$new(
-  nbins = 15, bin_estimator = lrn2,
-  bin_method = "dhist"
-)
-lrn3_dens <- Lrnr_condensier$new(
-  nbins = 20, bin_estimator = lrn3,
-  bin_method = "dhist"
-)
-sl_lrn_dens <- Lrnr_sl$new(
-  learners = list(lrn1_dens, lrn2_dens, lrn3_dens),
-  metalearner = Lrnr_solnp_density$new()
+
+
+hal_dens <- Lrnr_haldensify$new(
+  grid_type = "equal_mass",
+  n_bin = 5,
+  lambda_seq = exp(seq(-1, -8, length = 160))
 )
 
 Q_learner <- sl_lrn
-g_learner <- sl_lrn_dens
+#g_learner <- sl_lrn_dens
+g_learner <- hal_dens
+#g_learner <-lrn_rfcde
 learner_list <- list(Y = Q_learner, A = g_learner)
 
 new_tmle = function(likelihd, update, tmle_task, tmle_spec, updater) {
@@ -118,14 +123,15 @@ train[, names(Xcont)] <- Xcont + runif(-.01, 0.01, n = nrow(Xcont))
 Wnames <- c(names(Xcont), names(Xcont_date))
 Wnames_cat <- names(Xcat)
 
-### stoachasti txt regime for continuous vars only
+### stochastic txt regime for continuous vars only
 run_vim_shift <- function(train, Wnames) {
   ates <- list()
   for (i in 1:(length(Wnames))) {
     print(Wnames[i])
+    ctrl = c("sex", "m_wt")
     dat <- data.frame(train)
-    node_list <- list(W = names(dat)[!(names(dat) %in% c(Wnames[i], "y", "X"))],
-                      A = Wnames[i], Y = "y")
+    node_list <- list(W = ctrl[!(ctrl %in% c(Wnames[i], "y", "X"))],
+                      A = Wnames[i], Y = "y", id = "dhc")
     node_list
 
     # current_a = Xcont$fun_ht_anc1
@@ -143,6 +149,9 @@ run_vim_shift <- function(train, Wnames) {
       max_shifted_ratio = 3
     )
     tmle_fit <- tmle3(tmle_spec, dat, node_list, learner_list)
+    #ic = aggregate(data.frame(id = dat$dhc, ic = tmle_fit$estimates[[3]]$IC), by=list(dat$dhc), mean)
+    #plot(density(ic$ic))
+    #aggregate(tmle_fit$estimates[[3]])
 
     ates[[i]] <- get_sd(tmle_fit, 2, 3)
   }
@@ -175,8 +184,10 @@ run_cat_vars <- function(train, Wnames_cat) {
   reg_ate <- list()
   for (i in 1:length(Wnames_cat)) {
     dat <- data.frame(train)
-    node_list <- list(W = names(dat)[!(names(dat) %in% c(Wnames_cat[i], "y", "X"))],
-                      A = Wnames_cat[i], Y = "y")
+    ctrl = c("sex", "m_wt")
+    node_list <- list(W = ctrl[!(ctrl %in% c(Wnames_cat[i], "y", "X"))],
+                      A = Wnames_cat[i], Y = "y", id = "dhc")
+
     node_list
 
     ########
@@ -222,13 +233,15 @@ run_combined_var_imp <- function(train, Wnames, Wnames_cat) {
 }
 
 ##outputs list of sorted names in first element and other two elements contain inference
-# var_imp_list = run_combined_var_imp(train, Wnames, Wnames_cat)
+var_imp_list = run_combined_var_imp(train, Wnames, Wnames_cat)
+
+
 # ##to output just ordered list
 # var_imp_list$ordered_names
-# #save(var_imp_list, file = "var_imp_list.Rdata")
+#save(var_imp_list, file = "var_imp_list.Rdata")
 # library(xtable)
-# sorted_cts = var_imp_list$inference_conts[order(var_imp_list$inference_conts$pval),c(1:3,5,4)]
-# sorted_cts
+#sorted_cts = var_imp_list$inference_conts[order(var_imp_list$inference_conts$pval),c(1:3,5,4)]
+#sorted_cts
 # names(sorted_cts) = c("RiskDiff", "Lower", "Upper", "SE Est", "P-Val")
 # sorted_cts
 # xtable(var_imp_list$inference_conts)
