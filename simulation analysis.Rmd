@@ -80,5 +80,13 @@ ggplot(ns, aes(x = as.character(n), y = concordance)) +
   facet_wrap(~ method) +
   geom_hline(yintercept = 27^2 / 2, col = "red") +
   labs(x = "n")
+```
 
+```{r}
+complexity <- complexity %>% gather(key = "method", value = "concordance", -complexity)
+ggplot(complexity, aes(x = as.character(complexity), y = concordance)) +
+  geom_boxplot(aes(group = complexity)) +
+  facet_wrap(~ method) +
+  geom_hline(yintercept = 27^2 / 2, col = "red") +
+  labs(x = "complexity")
 ```
