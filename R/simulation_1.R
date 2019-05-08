@@ -24,25 +24,25 @@ registerDoParallel(nCores)
 k <- 8
 n <- 2^k
 
-print("Running for various seed for n")
-results <- foreach(i = 1:reps) %dopar% {
-  suppressMessages(suppressWarnings(tryCatch(
-  {sim1 <- simulate_outcome(sample_data = sample_data, n = n,
-                           complexity = 1, seed = sample(1:10000, 1))
-  trueOrder <- ranking_complex(ranking_info = sim1$ranking_info)
-  gbOrder <- gbm(data = data.frame(sim1$covariates, y = sim1$y))
-  suppressMessages(vimshiftOrder <- run_combined_var_imp(train = data.frame(sim1$covariates,
-                                                           y = as.integer(sim1$y)),
-                                        Wnames, Wnames_cat))
-  a <- list("truth" = trueOrder,
-       "gb" = gbOrder,
-       "vim" = vimshiftOrder)
-  saveRDS(a, file = here("data", paste0("n_", n, "_", i, ".rds")))
-  })))
-  cat("Iteration", i, "done\n")
-}
-
-saveRDS(results, file = here("data", paste0("n_", n, ".rds")))
+# print("Running for various seed for n")
+# results <- foreach(i = 1:reps) %dopar% {
+#   suppressMessages(suppressWarnings(tryCatch(
+#   {sim1 <- simulate_outcome(sample_data = sample_data, n = n,
+#                            complexity = 1, seed = sample(1:10000, 1))
+#   trueOrder <- ranking_complex(ranking_info = sim1$ranking_info)
+#   gbOrder <- gbm(data = data.frame(sim1$covariates, y = sim1$y))
+#   suppressMessages(vimshiftOrder <- run_combined_var_imp(train = data.frame(sim1$covariates,
+#                                                            y = as.integer(sim1$y)),
+#                                         Wnames, Wnames_cat))
+#   a <- list("truth" = trueOrder,
+#        "gb" = gbOrder,
+#        "vim" = vimshiftOrder)
+#   saveRDS(a, file = here("data", paste0("n_", n, "_", i, ".rds")))
+#   })))
+#   cat("Iteration", i, "done\n")
+# }
+#
+# saveRDS(results, file = here("data", paste0("n_", n, ".rds")))
 
 print("Running for various seed for complexity")
 complexity <- 6
