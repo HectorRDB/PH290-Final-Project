@@ -23,6 +23,46 @@ rm(libs)
 ```
 
 ```{r load data}
-complexity_1 <- readRDS(here("data", "complexity_1.rds"))
-n_729 <- readRDS(here("data", "n_729.rds"))
+complexity <- list()
+for (i in 0:7) {
+  complexity[[as.character(k)]] <- readRDS(here("data", paste0("complexity_", i, ".rds")))
+}
+ns <- list()
+for (k in 6:12) {
+  n <- 3^k
+  ns[[as.character(n)]] <- ns(here("data", paste0("complexity_", n, ".rds")))
+}
+```
+
+
+```{r}
+gb_concordance <- function(thruth, gb) {
+  con <- map_dbl(1:length(l1), function(i) {
+    sum(l1[1:i] %in% l2[1:i])}
+  )
+  return(sum(con))
+}
+
+tmleshift_concordance <- function(thruth, gb) {
+  con <- map_dbl(1:length(l1), function(i) {
+    sum(l1[1:i] %in% l2[1:i])}
+  )
+  return(sum(con))
+}
+
+complexity <- lapply(complexity, function(complexity_i) {
+  map_df(complexity_i, function(run) {
+    con_gb <- gb_concordance(run$truth, run$gb)
+    con_vim <- gb_concordance(run$truth, run$vim)
+    return(con_gb, con_vim)
+  })
+})
+
+ns <- lapply(ns, function(ns_i) {
+  map_df(ns_i, function(run) {
+    con_gb <- gb_concordance(run$truth, run$gb)
+    con_vim <- gb_concordance(run$truth, run$vim)
+    return(con_gb, con_vim)
+  })
+})
 ```
