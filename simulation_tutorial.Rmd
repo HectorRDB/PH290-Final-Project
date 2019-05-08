@@ -27,7 +27,7 @@ This tutorial explains how to use the simulation framework.
 We load the data that we want (i.e the binomial data that will serve to produce the simulation) and the scripts. The main function we care about is $simulate\_outcome$.
 
 ```{r}
-sample_data <- read.csv(here("data", "sample_ga_data_binomial.csv"))
+sample_data <- read.csv(here("data", "sample_ga_data_binomial_2019-04-26.csv"))
 source(here("R", "sim_variables.R"))
 ```
 

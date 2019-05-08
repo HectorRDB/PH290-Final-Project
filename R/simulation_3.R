@@ -31,12 +31,13 @@ results <- foreach(i = 1:reps) %dopar% {
                            complexity = 1, seed = sample(1:10000, 1))
   trueOrder <- ranking_complex(ranking_info = sim1$ranking_info)
   gbOrder <- gbm(data = data.frame(sim1$covariates, y = sim1$y))
-  suppressMessages(vimshiftOrder <- run_combined_var_imp(train = data.frame(sim1$covariates,
+  vimshiftOrder <- run_combined_var_imp(train = data.frame(sim1$covariates,
                                                            y = as.integer(sim1$y)),
-                                        Wnames, Wnames_cat))
+                                        Wnames, Wnames_cat)
   a <- list("truth" = trueOrder,
        "gb" = gbOrder,
        "vim" = vimshiftOrder)
+  a
   saveRDS(a, file = here("data", paste0("n_", n, "_", i, ".rds")))
   })))
   cat("Iteration", i, "done\n")
@@ -52,14 +53,15 @@ results <- foreach(i = 1:reps) %dopar% {
                            complexity = complexity, seed = sample(1:10000, 1))
   trueOrder <- ranking_complex(ranking_info = sim1$ranking_info)
   gbOrder <- gbm(data = data.frame(sim1$covariates, y = sim1$y))
-  suppressMessages(vimshiftOrder <- run_combined_var_imp(train = data.frame(sim1$covariates,
+  vimshiftOrder <- run_combined_var_imp(train = data.frame(sim1$covariates,
                                                            y = as.integer(sim1$y)),
-                                        Wnames, Wnames_cat))
+                                        Wnames, Wnames_cat)
   a <- list("truth" = trueOrder,
             "gb" = gbOrder,
             "vim" = vimshiftOrder)
   saveRDS(a, file = here("data", paste0("complexity_", complexity, "_", i, ".rds")))
   }
+  a
   )))
   cat("Iteration", i, "done\n")
 }
