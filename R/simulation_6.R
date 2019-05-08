@@ -41,7 +41,7 @@ results <- foreach(i = 1:reps) %dopar% {
   })))
   cat("Iteration", i, "done\n")
 }
-complexity <- 1
+
 saveRDS(results, file = here("data", paste0("n_", n, ".rds")))
 
 print("Running for various seed for complexity")

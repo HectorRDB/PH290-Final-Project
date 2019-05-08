@@ -41,11 +41,11 @@ results <- foreach(i = 1:reps) %dopar% {
   })))
   cat("Iteration", i, "done\n")
 }
-complexity <- 3
+
 saveRDS(results, file = here("data", paste0("n_", n, ".rds")))
 
 print("Running for various seed for complexity")
-complexity <- 1
+complexity <- 3
 results <- foreach(i = 1:reps) %dopar% {
   suppressMessages(suppressWarnings(tryCatch(
   {sim1 <- simulate_outcome(sample_data = sample_data, n = 1000,

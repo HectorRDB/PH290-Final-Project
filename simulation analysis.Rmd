@@ -15,54 +15,70 @@ opts_chunk$set(
   fig.pos = "!h", out.extra = "", warning = F, message = F,
   fig.width = 5, fig.align = "center", echo = F
 )
-libs <- c("here", "tidyverse")
+libs <- c("here", "tidyverse", "DailyHRB")
 suppressMessages(
   suppressWarnings(sapply(libs, require, character.only = TRUE))
 )
 rm(libs)
 ```
 
+```{r}
+gb_concordance <- function(truth, gb) {
+  l1 <- sort(truth, decreasing = TRUE)
+  l2 <- sort(gb, decreasing = TRUE)
+  con <- map_dbl(1:length(l1), function(i) {
+    sum(l1[1:i] %in% l2[1:i])}
+  )
+  return(sum(con))
+}
+
+tmleshift_concordance <- function(truth, vim) {
+  l1 <- names(sort(truth, decreasing = TRUE))
+  l2 <- vim$ordered_names
+  con <- map_dbl(1:length(l1), function(i) {
+    sum(l1[1:i] %in% l2[1:i])}
+  )
+  return(sum(con))
+}
+```
+
 ```{r load data}
-complexity <- list()
-for (i in 0:7) {
-  complexity[[as.character(k)]] <- readRDS(here("data", paste0("complexity_", i, ".rds")))
-}
-ns <- list()
-for (k in 6:12) {
-  n <- 3^k
-  ns[[as.character(n)]] <- ns(here("data", paste0("complexity_", n, ".rds")))
-}
+files <- list.files(here("data"))
+complexity <- map_df(0:6, function(complexity) {
+  files_c <- files[str_detect(files, paste0("complexity_", complexity))]
+  names(files_c) <- 1:length(files_c)
+  res <- map_df(files_c, function(file){
+    complexity_c <- readRDS(here("data", file))
+    return(c(gb_concordance(complexity_c$truth, complexity_c$gb),
+             tmleshift_concordance(complexity_c$truth, complexity_c$vim)))
+  }) %>% t() %>% as.data.frame()
+  colnames(res) <- c("gbm", "tmleshift")
+  res$complexity <- complexity
+  return(res)  
+})
+
+ns <- map_df(8:13, function(k) {
+  n <- 2^k
+  files_n <- files[str_detect(files, as.character(n))]
+  names(files_n) <- 1:length(files_n)
+  res <- map_df(files_n, function(file){
+    ns_n <- readRDS(here("data", file))
+    return(c(gb_concordance(ns_n$truth, ns_n$gb),
+             tmleshift_concordance(ns_n$truth, ns_n$vim)))
+  }) %>% t() %>% as.data.frame()
+  colnames(res) <- c("gbm", "tmleshift")
+  res$n <- n
+  return(res)  
+})
 ```
 
 
 ```{r}
-gb_concordance <- function(thruth, gb) {
-  con <- map_dbl(1:length(l1), function(i) {
-    sum(l1[1:i] %in% l2[1:i])}
-  )
-  return(sum(con))
-}
+ns <- ns %>% gather(key = "method", value = "concordance", -n)
+ggplot(ns, aes(x = as.character(n), y = concordance)) +
+  geom_boxplot(aes(group = n)) +
+  facet_wrap(~ method) +
+  geom_hline(yintercept = 27^2 / 2, col = "red") +
+  labs(x = "n")
 
-tmleshift_concordance <- function(thruth, gb) {
-  con <- map_dbl(1:length(l1), function(i) {
-    sum(l1[1:i] %in% l2[1:i])}
-  )
-  return(sum(con))
-}
-
-complexity <- lapply(complexity, function(complexity_i) {
-  map_df(complexity_i, function(run) {
-    con_gb <- gb_concordance(run$truth, run$gb)
-    con_vim <- gb_concordance(run$truth, run$vim)
-    return(con_gb, con_vim)
-  })
-})
-
-ns <- lapply(ns, function(ns_i) {
-  map_df(ns_i, function(run) {
-    con_gb <- gb_concordance(run$truth, run$gb)
-    con_vim <- gb_concordance(run$truth, run$vim)
-    return(con_gb, con_vim)
-  })
-})
 ```
