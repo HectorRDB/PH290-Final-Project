@@ -77,17 +77,33 @@ new_tmle = function(likelihd, update, tmle_task, tmle_spec, updater) {
 
 }
 
-get_sd <- function(tm_fit, stat1, stat2) {
+get_sd <- function(tm_fit, stat1, stat2, dat) {
   sd1 <- sqrt(var(tm_fit$estimates[[1]]$IC) / length(tm_fit$estimates[[1]]$IC))
   sd2 <- sqrt(var(tm_fit$estimates[[2]]$IC) / length(tm_fit$estimates[[2]]$IC))
   sd3 <- sqrt(var(tm_fit$estimates[[3]]$IC) / length(tm_fit$estimates[[3]]$IC))
-
-  test_sd <- sqrt(var(tm_fit$estimates[[stat2]]$IC - tm_fit$estimates[[stat1]]$IC) / nrow(tm_fit$estimates[[stat2]]$IC))
+  
+  # ic_2 = aggregate(data.frame(id = dat$dhc, ic = tm_fit$estimates[[stat2]]$IC), by=list(dat$dhc), mean)
+  # ic_1 = aggregate(data.frame(id = dat$dhc, ic = tm_fit$estimates[[stat1]]$IC), by=list(dat$dhc), mean)
+  # print(sqrt(var(ic_2$ic)/nrow(ic_2)) == tm_fit$summary$se[stat2])
+  # print(sqrt(var(ic_1$ic)/ nrow(ic_1)) == tm_fit$summary$se[stat1])
+  
+  #plot(density(ic$ic))
+  #aggregate(tmle_fit$estimates[[3]])
+  
+  test_sd = sqrt(var(tm_fit$estimates[[stat2]]$IC - tm_fit$estimates[[stat1]]$IC)/ nrow(tm_fit$estimates[[stat1]]$IC))
+  #test_sd <- sqrt(var(ic_2$ic - ic_1$ic) / nrow(ic_2))
   test_stat <- ((tm_fit$estimates[[stat2]]$psi) - (tm_fit$estimates[[stat1]]$psi)) / test_sd
   ate <- tm_fit$estimates[[stat2]]$psi - tm_fit$estimates[[stat1]]$psi
   pv <- 2 * pnorm(-abs(test_stat))
   lower <- ate - (1.96 * test_sd)
   upper <- ate + (1.96 * test_sd)
+
+  # test_sd <- sqrt(var(tm_fit$estimates[[stat2]]$IC - tm_fit$estimates[[stat1]]$IC) / nrow(tm_fit$estimates[[stat2]]$IC))
+  # test_stat <- ((tm_fit$estimates[[stat2]]$psi) - (tm_fit$estimates[[stat1]]$psi)) / test_sd
+  # ate <- tm_fit$estimates[[stat2]]$psi - tm_fit$estimates[[stat1]]$psi
+  # pv <- 2 * pnorm(-abs(test_stat))
+  # lower <- ate - (1.96 * test_sd)
+  # upper <- ate + (1.96 * test_sd)
 
   ## MSM ##
   var_D <- cov(tm_fit$estimates[[4]]$IC)
@@ -129,8 +145,12 @@ run_vim_shift <- function(train, Wnames) {
   for (i in 1:(length(Wnames))) {
     print(Wnames[i])
     dat <- data.frame(train)
+    
+    # ctrl = c("sex", "m_wt")
+    # node_list <- list(W = ctrl[!(ctrl %in% c(Wnames[i], "y", "X"))],
+    #                   A = Wnames[i], Y = "y", id = "dhc")
     node_list <- list(W = names(dat)[!(names(dat) %in% c(Wnames[i], "y", "X"))],
-                      A = Wnames[i], Y = "y", id = "dhc")
+                      A = Wnames[i], Y = "y")
     node_list
 
     # current_a = Xcont$fun_ht_anc1
@@ -148,11 +168,9 @@ run_vim_shift <- function(train, Wnames) {
       max_shifted_ratio = 3
     )
     tmle_fit <- tmle3(tmle_spec, dat, node_list, learner_list)
-    #ic = aggregate(data.frame(id = dat$dhc, ic = tmle_fit$estimates[[3]]$IC), by=list(dat$dhc), mean)
-    #plot(density(ic$ic))
-    #aggregate(tmle_fit$estimates[[3]])
 
-    ates[[i]] <- get_sd(tmle_fit, 2, 3)
+
+    ates[[i]] <- get_sd(tmle_fit, 2, 3, dat = data.frame(train))
   }
   # load(file = "var_imp_vimpshift_26_apr_2019.Rdata")
   names(ates) <- Wnames
@@ -183,9 +201,12 @@ run_cat_vars <- function(train, Wnames_cat) {
   reg_ate <- list()
   for (i in 1:length(Wnames_cat)) {
     dat <- data.frame(train)
-    #ctrl = c("sex", "m_wt")
+    ctrl = c("sex", "m_wt") 
+    
+    # node_list <- list(W = ctrl[!(ctrl %in% c(Wnames_cat[i], "y", "X"))],
+    #                   A = Wnames_cat[i], Y = "y", id = "dhc")
     node_list <- list(W = names(dat)[!(names(dat) %in% c(Wnames_cat[i], "y", "X"))],
-                      A = Wnames_cat[i], Y = "y", id = "dhc")
+                      A = Wnames_cat[i], Y = "y")
     node_list
 
     ########
@@ -200,7 +221,8 @@ run_cat_vars <- function(train, Wnames_cat) {
     ########
     reg_tmle <- new_tmle(initial_likelihood, tmle3_Update$new(), tmle_task, tmle_spec, updater)
     estim <- reg_tmle$estimates[[1]]$psi
-    test_sd <- sqrt(var(reg_tmle$estimates[[1]]$IC) / nrow(train))
+    # test_sd <- sqrt(var(reg_tmle$estimates[[1]]$IC) / nrow(train))
+    test_sd <- reg_tmle$summary$se
     test_stat <- estim / test_sd
     pval <- 2 * pnorm(-abs(test_stat))
     lower <- reg_tmle$summary$lower
@@ -231,15 +253,25 @@ run_combined_var_imp <- function(train, Wnames, Wnames_cat) {
 }
 
 ##outputs list of sorted names in first element and other two elements contain inference
-var_imp_list = run_combined_var_imp(train, Wnames, Wnames_cat)
+#var_imp_list = run_combined_var_imp(train, Wnames, Wnames_cat)
 
-
+#save(var_imp_list, file = "var_imp_list_final_9_may_2019.Rdata")
 # ##to output just ordered list
 # var_imp_list$ordered_names
 #save(var_imp_list, file = "var_imp_list.Rdata")
+#  library(xtable)
+# cat = subset(var_imp_list$inference_categor, select = c(ate, lower, upper, pval, test_sd))
+# conts = subset(var_imp_list$inference_conts, select =  c(ate, lower, upper, pval, test_sd))
+# 
+# sorted_all = data.frame(rbind(conts, cat))
+# 
+# sorted_all = (sorted_all[order(sorted_all$pval),])
+# names(sorted_all) = c("RiskDiff", "Lower", "Upper", "P-Val", "SE Est")
+# write.csv(sorted_all, "final_sorted_varimp.csv")
+# final = round(sorted_all[c(1:11),], 4)
+# #sorted_cts = var_imp_list$inference_conts[order(var_imp_list$inference_conts$pval),c(1:3,5,4)]
+# #sorted_cts
+# # names(sorted_cts) = c("RiskDiff", "Lower", "Upper", "SE Est", "P-Val")
+# # sorted_cts
 # library(xtable)
-#sorted_cts = var_imp_list$inference_conts[order(var_imp_list$inference_conts$pval),c(1:3,5,4)]
-#sorted_cts
-# names(sorted_cts) = c("RiskDiff", "Lower", "Upper", "SE Est", "P-Val")
-# sorted_cts
-# xtable(var_imp_list$inference_conts)
+# xtable(final)
