@@ -118,3 +118,14 @@ ggplot(complexity, aes(x = complexity, y = concordance)) +
 
 ggsave("Figures/res_complexity.pdf")
 ```
+
+```{r}
+files_n <- files[str_detect(files, "500")]
+names(files_n) <- 1:length(files_n)
+res <- map_df(files_n, function(file){
+  ns_n <- readRDS(here("data", file))
+  return(c(gb_concordance(ns_n$truth, ns_n$gb),
+           tmleshift_concordance(ns_n$truth, ns_n$vim)))
+}) %>% t() %>% as.data.frame()
+colnames(res) <- c("gbm", "tmleshift")
+```
