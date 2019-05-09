@@ -58,8 +58,8 @@ hal_dens <- Lrnr_haldensify$new(
 
 Q_learner <- sl_lrn
 #g_learner <- sl_lrn_dens
-g_learner <- hal_dens
-#g_learner <-lrn_rfcde
+#g_learner <- hal_dens
+g_learner <-lrn_rfcde
 learner_list <- list(Y = Q_learner, A = g_learner)
 
 new_tmle = function(likelihd, update, tmle_task, tmle_spec, updater) {
@@ -128,9 +128,8 @@ run_vim_shift <- function(train, Wnames) {
   ates <- list()
   for (i in 1:(length(Wnames))) {
     print(Wnames[i])
-    ctrl = c("sex", "m_wt")
     dat <- data.frame(train)
-    node_list <- list(W = ctrl[!(ctrl %in% c(Wnames[i], "y", "X"))],
+    node_list <- list(W = names(dat)[!(names(dat) %in% c(Wnames[i], "y", "X"))],
                       A = Wnames[i], Y = "y", id = "dhc")
     node_list
 
@@ -184,10 +183,9 @@ run_cat_vars <- function(train, Wnames_cat) {
   reg_ate <- list()
   for (i in 1:length(Wnames_cat)) {
     dat <- data.frame(train)
-    ctrl = c("sex", "m_wt")
-    node_list <- list(W = ctrl[!(ctrl %in% c(Wnames_cat[i], "y", "X"))],
+    #ctrl = c("sex", "m_wt")
+    node_list <- list(W = names(dat)[!(names(dat) %in% c(Wnames_cat[i], "y", "X"))],
                       A = Wnames_cat[i], Y = "y", id = "dhc")
-
     node_list
 
     ########
